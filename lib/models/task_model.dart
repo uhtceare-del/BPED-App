@@ -1,0 +1,69 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+class TaskModel {
+  final String id;
+  final String lessonId;
+  final String title;
+  final String description;
+  final int maxScore;
+  final DateTime deadline; // due date
+
+  TaskModel({
+    required this.id,
+    required this.lessonId,
+    required this.title,
+    required this.description,
+    required this.maxScore,
+    required this.deadline,
+  });
+
+  /// Create TaskModel from Firestore DocumentSnapshot
+  factory TaskModel.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+
+    // Parse deadline safely
+    DateTime parsedDeadline = DateTime.now();
+    final rawDeadline = data['deadline'];
+
+    if (rawDeadline != null) {
+      if (rawDeadline is Timestamp) {
+        parsedDeadline = rawDeadline.toDate();
+      } else if (rawDeadline is DateTime) {
+        parsedDeadline = rawDeadline;
+      } else if (rawDeadline is String) {
+        parsedDeadline = DateTime.tryParse(rawDeadline) ?? DateTime.now();
+      }
+    }
+
+    // Parse maxScore safely
+    int parsedMaxScore = 100;
+    final rawMaxScore = data['maxScore'];
+    if (rawMaxScore != null) {
+      if (rawMaxScore is int) {
+        parsedMaxScore = rawMaxScore;
+      } else {
+        parsedMaxScore = int.tryParse(rawMaxScore.toString()) ?? 100;
+      }
+    }
+
+    return TaskModel(
+      id: doc.id,
+      lessonId: data['lessonId'] ?? '',
+      title: data['title'] ?? '',
+      description: data['description'] ?? '',
+      maxScore: parsedMaxScore,
+      deadline: parsedDeadline,
+    );
+  }
+
+  /// Convert TaskModel to Map for Firestore
+  Map<String, dynamic> toMap() {
+    return {
+      'lessonId': lessonId,
+      'title': title,
+      'description': description,
+      'maxScore': maxScore,
+      'deadline': Timestamp.fromDate(deadline), // store as Timestamp
+    };
+  }
+}
