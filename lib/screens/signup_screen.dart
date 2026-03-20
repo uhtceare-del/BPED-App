@@ -171,10 +171,6 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
   Widget _buildGoogleButton() => OutlinedButton.icon(
     onPressed: _isLoading ? null : _handleGoogleSignUp,
-    icon: Image.network(
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Google_%22G%22_Logo.svg/512px-Google_%22G%22_Logo.svg.png',
-      height: 24,
-    ),
     label: const Text(
       "Sign Up with Google",
       style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 16),
