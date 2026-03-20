@@ -5,13 +5,15 @@ class CourseModel {
   final String name;
   final String description;
   final String instructorId;
-  final List<String>? enrolledStudents; // NEW
+  final String? videoUrl; // NEW: Added for the video player
+  final List<String>? enrolledStudents;
 
   CourseModel({
     required this.id,
     required this.name,
     required this.description,
     required this.instructorId,
+    this.videoUrl, // Added here
     this.enrolledStudents,
   });
 
@@ -22,6 +24,7 @@ class CourseModel {
       name: data['name'] ?? '',
       description: data['description'] ?? '',
       instructorId: data['instructorId'] ?? '',
+      videoUrl: data['videoUrl'], // Map the field from Firestore
       enrolledStudents: List<String>.from(data['enrolledStudents'] ?? []),
     );
   }
@@ -31,6 +34,7 @@ class CourseModel {
       'name': name,
       'description': description,
       'instructorId': instructorId,
+      'videoUrl': videoUrl, // Save the URL back to Firestore
       'enrolledStudents': enrolledStudents ?? [],
     };
   }
