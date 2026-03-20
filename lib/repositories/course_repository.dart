@@ -51,7 +51,19 @@ class CourseRepository {
     final snapshot = await firestore.collection('courses').get();
     return snapshot.docs.map((doc) => CourseModel.fromFirestore(doc)).toList();
   }
-
+  Stream<List<CourseModel>> getEnrolledCourses(String studentId) {
+    return firestore
+        .collection('courses')
+        .where('enrolledStudents', arrayContains: studentId)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+        .map((doc) => CourseModel.fromFirestore(doc))
+        .toList());
+  }
+/// Add this to your CourseRepository class
+  Future<void> createCourse(CourseModel course) async {
+    await firestore.collection('courses').add(course.toMap());
+  }
   /// ✅ Enroll a student in a course
   Future<void> enrollStudentInCourse({
     required String courseId,

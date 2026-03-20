@@ -4,13 +4,11 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-// Relative imports
-import '../providers/image_upload_provider.dart';
-import '../providers/auth_provider.dart';
-import '../controllers/auth_controller.dart';
-import 'student_dashboard.dart';
-import 'instructor_dashboard.dart';
+import 'package:phys_ed/providers/image_upload_provider.dart';
+import 'package:phys_ed/providers/auth_provider.dart';
+import 'package:phys_ed/screens/onboarding_screen.dart';
 
 class SignUpScreen extends ConsumerStatefulWidget {
   const SignUpScreen({super.key});
@@ -20,258 +18,148 @@ class SignUpScreen extends ConsumerStatefulWidget {
 }
 
 class _SignUpScreenState extends ConsumerState<SignUpScreen> {
+  static const Color lnuNavy = Color(0xFF002147);
+  static const Color academicGray = Color(0xFFF0F4F8);
+
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _sectionController = TextEditingController();
-  final _yearLevelController = TextEditingController();
 
-  File? _mobileImageFile;
-  Uint8List? _webImageBytes;
-  String? _uploadedImageUrl;
-  bool _isPickingImage = false;
-  String _selectedRole = 'student';
+  bool _isLoading = false;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _sectionController.dispose();
-    _yearLevelController.dispose();
     super.dispose();
   }
 
-  bool get isBusy => _isPickingImage || ref.watch(imageUploadProvider).isLoading;
-
-  Widget _buildField({
-    required TextEditingController controller,
-    required String label,
-    bool obscure = false,
-    String? Function(String?)? validator,
-    TextInputType? keyboardType,
-  }) =>
-      TextFormField(
-        controller: controller,
-        keyboardType: keyboardType,
-        decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
-        obscureText: obscure,
-        validator: validator,
-      );
-
-  Future<void> _pickImage() async {
-    setState(() => _isPickingImage = true);
+  // --- NEW: GOOGLE SIGN UP LOGIC ---
+  Future<void> _handleGoogleSignUp() async {
+    setState(() => _isLoading = true);
     try {
-      final picker = ImagePicker();
-      final picked = await picker.pickImage(source: ImageSource.gallery);
-      if (picked == null) return;
+      final authController = ref.read(authControllerProvider);
+      final authRepository = ref.read(authRepositoryProvider);
 
-      if (kIsWeb) {
-        final bytes = await picked.readAsBytes();
-        setState(() {
-          _webImageBytes = bytes;
-          _mobileImageFile = null;
-          _uploadedImageUrl = null;
-        });
-      } else {
-        setState(() {
-          _mobileImageFile = File(picked.path);
-          _webImageBytes = null;
-          _uploadedImageUrl = null;
-        });
+      // 1. Authenticate (Forces account picker via updated provider)
+      final userCredential = await authController.signInWithGoogle();
+
+      if (userCredential != null && mounted) {
+        // 2. Check if user already exists in Firestore
+        final exists = await authRepository.doesUserExist(userCredential.user!.uid);
+
+        if (!exists) {
+          // 3. New User: Route to Onboarding
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const OnboardingScreen()),
+          );
+        } else {
+          // Existing User: AuthWrapper in main.dart will handle the dashboard routing
+          Navigator.pop(context);
+        }
       }
-
-      ref.read(imageUploadProvider.notifier).reset();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to pick image: $e")),
+          SnackBar(content: Text("Google Sign-Up failed: $e")),
         );
       }
     } finally {
-      if (mounted) setState(() => _isPickingImage = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  Future<String?> _uploadAvatar() async {
-    if ((kIsWeb && _webImageBytes != null)) {
-      return await ref.read(imageUploadProvider.notifier)
-          .uploadBytes(_webImageBytes!, filename: 'avatar_${_emailController.text.split('@')[0]}.jpg');
-    } else if (!kIsWeb && _mobileImageFile != null) {
-      return await ref.read(imageUploadProvider.notifier).upload(_mobileImageFile!);
-    }
-    return null;
-  }
-
-  Future<void> _signUp() async {
+  // --- STANDARD EMAIL SIGN UP ---
+  Future<void> _handleEmailSignUp() async {
     if (!_formKey.currentState!.validate()) return;
-
-    final authController = ref.read(authControllerProvider);
+    setState(() => _isLoading = true);
 
     try {
-      // Sign up user first without avatar
+      // For email signup, we still need onboarding details
+      // OR we route them to OnboardingScreen after account creation.
+      // Let's route to Onboarding for a unified experience.
       final userCredential = await ref.read(authControllerProvider).signUp(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
-        role: _selectedRole,
-        avatarUrl: null,
-        section: _selectedRole == 'student' ? _sectionController.text.trim() : null,
-        yearLevel: _selectedRole == 'student' ? int.tryParse(_yearLevelController.text.trim()) : null,
+        role: 'student', // Default or add a toggle
+        section: '',
+        yearLevel: '',
       );
 
-      // Upload avatar if any
-      String? avatarUrl;
-      if (_mobileImageFile != null || _webImageBytes != null) {
-        avatarUrl = await _uploadAvatar();
-      }
-
-      // Update Firestore document with avatar
-      if (avatarUrl != null) {
-        await authController.updateUserAvatar(
-          uid: userCredential.user!.uid,
-          avatarUrl: avatarUrl,
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const OnboardingScreen()),
         );
       }
-
-      if (!mounted) return;
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => _selectedRole == 'student'
-              ? const StudentDashboard()
-              : const InstructorDashboard(),
-        ),
-      );
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Sign up failed: $e"),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.redAccent),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-  }
-
-  ImageProvider? get _avatarImage {
-    if (_uploadedImageUrl != null) return NetworkImage(_uploadedImageUrl!);
-    if (kIsWeb && _webImageBytes != null) return MemoryImage(_webImageBytes!);
-    if (!kIsWeb && _mobileImageFile != null) return FileImage(_mobileImageFile!);
-    return null;
   }
 
   @override
   Widget build(BuildContext context) {
-    final uploadState = ref.watch(imageUploadProvider);
-
     return Scaffold(
-      appBar: AppBar(title: const Text("Create Account"), centerTitle: true),
-      body: SafeArea(
+      backgroundColor: academicGray,
+      appBar: AppBar(
+        title: const Text("Create Account", style: TextStyle(color: lnuNavy, fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: lnuNavy),
+      ),
+      body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Form(
             key: _formKey,
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                const Icon(Icons.school_outlined, size: 80, color: lnuNavy),
+                const SizedBox(height: 24),
+                const Text(
+                  "Join the LNU PE Portal",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: lnuNavy),
+                ),
                 const SizedBox(height: 32),
-                Center(
-                  child: GestureDetector(
-                    onTap: isBusy ? null : _pickImage,
-                    child: Stack(
-                      alignment: Alignment.bottomRight,
-                      children: [
-                        CircleAvatar(
-                          radius: 60,
-                          backgroundColor: Colors.grey.shade300,
-                          backgroundImage: _avatarImage,
-                          child: _avatarImage == null
-                              ? const Icon(Icons.add_a_photo, size: 48, color: Colors.white70)
-                              : null,
-                        ),
-                        if (isBusy)
-                          const Padding(
-                            padding: EdgeInsets.all(8),
-                            child: CircularProgressIndicator(strokeWidth: 3),
-                          )
-                        else
-                          Padding(
-                            padding: const EdgeInsets.all(4),
-                            child: CircleAvatar(
-                              radius: 16,
-                              backgroundColor: Theme.of(context).primaryColor,
-                              child: const Icon(Icons.camera_alt, size: 16, color: Colors.white),
-                            ),
-                          ),
-                      ],
+
+                // GOOGLE SIGN UP BUTTON
+                _buildGoogleButton(),
+
+                const SizedBox(height: 24),
+                const Row(
+                  children: [
+                    Expanded(child: Divider()),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: Text("OR USE EMAIL", style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
                     ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                _buildField(
-                  controller: _emailController,
-                  label: 'Email',
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) return 'Email is required';
-                    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(v.trim())) return 'Enter a valid email';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 20),
-                _buildField(
-                  controller: _passwordController,
-                  label: 'Password',
-                  obscure: true,
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) return 'Password is required';
-                    if (v.trim().length < 6) return 'Password must be at least 6 characters';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 20),
-                DropdownButtonFormField<String>(
-                  value: _selectedRole,
-                  decoration: const InputDecoration(labelText: 'Select Role', border: OutlineInputBorder()),
-                  items: const [
-                    DropdownMenuItem(value: 'student', child: Text('Student')),
-                    DropdownMenuItem(value: 'instructor', child: Text('Instructor')),
+                    Expanded(child: Divider()),
                   ],
-                  onChanged: isBusy ? null : (val) {
-                    if (val != null) setState(() => _selectedRole = val);
-                  },
-                ),
-                if (_selectedRole == 'student') ...[
-                  const SizedBox(height: 20),
-                  _buildField(controller: _sectionController, label: 'Section'),
-                  const SizedBox(height: 16),
-                  _buildField(
-                    controller: _yearLevelController,
-                    label: 'Year Level',
-                    keyboardType: TextInputType.number,
-                    validator: (v) {
-                      if (v != null && v.isNotEmpty && int.tryParse(v) == null) {
-                        return 'Enter a valid number';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                ],
-                const SizedBox(height: 32),
-                FilledButton.icon(
-                  onPressed: isBusy ? null : _signUp,
-                  icon: isBusy
-                      ? const SizedBox(
-                    width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
-                  )
-                      : const Icon(Icons.person_add),
-                  label: Text(isBusy ? 'Creating...' : 'Create Account'),
-                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
                 ),
                 const SizedBox(height: 24),
+
+                _buildTextField(_emailController, "Gmail Address", Icons.email_outlined),
+                const SizedBox(height: 16),
+                _buildTextField(_passwordController, "Password", Icons.lock_outline, obscure: true),
+                const SizedBox(height: 24),
+
+                _buildPrimaryButton("CREATE WITH EMAIL", _handleEmailSignUp),
+
+                const SizedBox(height: 20),
                 TextButton(
-                  onPressed: isBusy ? null : () => Navigator.pop(context),
-                  child: const Text("Already have an account? Sign in"),
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Already have an account? Sign in", style: TextStyle(color: lnuNavy, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
@@ -280,4 +168,51 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       ),
     );
   }
+
+  Widget _buildGoogleButton() => OutlinedButton.icon(
+    onPressed: _isLoading ? null : _handleGoogleSignUp,
+    icon: Image.network(
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Google_%22G%22_Logo.svg/512px-Google_%22G%22_Logo.svg.png',
+      height: 24,
+    ),
+    label: const Text(
+      "Sign Up with Google",
+      style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 16),
+    ),
+    style: OutlinedButton.styleFrom(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      backgroundColor: Colors.white,
+      side: const BorderSide(color: Colors.black12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+  );
+
+  Widget _buildTextField(TextEditingController controller, String label, IconData icon, {bool obscure = false}) =>
+      TextFormField(
+        controller: controller,
+        obscureText: obscure,
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: Icon(icon, color: lnuNavy),
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.black12)),
+        ),
+      );
+
+  Widget _buildPrimaryButton(String text, VoidCallback onPressed) => SizedBox(
+    height: 55,
+    child: ElevatedButton(
+      onPressed: _isLoading ? null : onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: lnuNavy,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      child: _isLoading
+          ? const CircularProgressIndicator(color: Colors.white)
+          : Text(text, style: const TextStyle(fontWeight: FontWeight.bold)),
+    ),
+  );
 }

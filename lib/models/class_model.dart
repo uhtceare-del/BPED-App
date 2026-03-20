@@ -1,33 +1,31 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 class ClassModel {
   final String id;
-  final String name;
-  final String yearLevel;
-  final DateTime createdAt;
+  final String className; // e.g., BPED 2-B
+  final String subject;   // e.g., Team Sports
+  final String schedule;  // e.g., Mon/Wed 1:00PM - 2:30PM
 
   ClassModel({
     required this.id,
-    required this.name,
-    required this.yearLevel,
-    required this.createdAt,
+    required this.className,
+    required this.subject,
+    required this.schedule,
   });
 
-  // Factory constructor to create ClassModel from Firestore data
-  factory ClassModel.fromFirestore(Map<String, dynamic> data, String id) {
-    return ClassModel(
-      id: id,
-      name: data['name'] ?? '',
-      yearLevel: data['yearLevel'] ?? '',
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-    );
+  Map<String, dynamic> toMap() {
+    return {
+      'className': className,
+      'subject': subject,
+      'schedule': schedule,
+    };
   }
 
-  // Convert ClassModel to a map for Firestore
-  Map<String, dynamic> toFirestore() {
-    return {
-      'name': name,
-      'yearLevel': yearLevel,
-      'createdAt': createdAt,
-    };
+  factory ClassModel.fromFirestore(var doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return ClassModel(
+      id: doc.id,
+      className: data['className'] ?? '',
+      subject: data['subject'] ?? '',
+      schedule: data['schedule'] ?? '',
+    );
   }
 }

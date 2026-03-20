@@ -1,30 +1,78 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:phys_ed/models/user_model.dart';
-import 'user_provider.dart';
-
+import 'package:google_sign_in/google_sign_in.dart';
+import '../models/user_model.dart';
+import 'package:flutter/foundation.dart';
 
 final firebaseAuthProvider = Provider<FirebaseAuth>((ref) => FirebaseAuth.instance);
 final firestoreProvider = Provider<FirebaseFirestore>((ref) => FirebaseFirestore.instance);
 
-// Stream to listen to login state
 final authStateProvider = StreamProvider<User?>((ref) {
   return ref.watch(firebaseAuthProvider).authStateChanges();
 });
 
-/// Repository: handles direct Firebase calls
+final currentUserProvider = StreamProvider<AppUser?>((ref) {
+  final authState = ref.watch(authStateProvider).value;
+  if (authState == null) return Stream.value(null);
+
+  return ref.watch(firestoreProvider)
+      .collection('users')
+      .doc(authState.uid)
+      .snapshots()
+      .map((snap) => snap.exists ? AppUser.fromFirestore(snap.data()!, authState.uid) : null);
+});
+
 class AuthRepository {
   final FirebaseAuth auth;
   final FirebaseFirestore firestore;
+  final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
 
   AuthRepository(this.auth, this.firestore);
 
-  User? get currentUser => auth.currentUser;
+  /// UPDATED: Forcing account selection and removing auto-doc creation
+  Future<UserCredential?> signInWithGoogle() async {
+    try {
+      GoogleAuthProvider googleProvider = GoogleAuthProvider();
 
-  /// Returns UserCredential now
-  Future<UserCredential> signIn(String email, String password) async {
-    return await auth.signInWithEmailAndPassword(email: email, password: password);
+      // Forces Google to show the account picker every time
+      googleProvider.setCustomParameters({
+        'prompt': 'select_account'
+      });
+
+      // Use popup for Web, consider signInWithCredential for mobile if needed
+      final userCredential = await auth.signInWithPopup(googleProvider);
+      return userCredential;
+    } catch (e) {
+      print("Google Auth Error: $e");
+      return null;
+    }
+  }
+
+  Future<bool> doesUserExist(String uid) async {
+    final doc = await firestore.collection('users').doc(uid).get();
+    return doc.exists;
+  }
+
+  /// UPDATED: Now includes name, year, and section for Google Signups too
+  Future<void> completeOnboarding({
+    required String uid,
+    required String fullName,
+    required String role,
+    required String yearLevel,
+    required String section,
+  }) async {
+    final user = auth.currentUser;
+    await firestore.collection('users').doc(uid).set({
+      'fullName': fullName,
+      'email': user?.email,
+      'role': role,
+      'avatarUrl': user?.photoURL ?? '',
+      'yearLevel': yearLevel,
+      'section': section,
+      'onboardingCompleted': true,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
   }
 
   Future<UserCredential> signUp({
@@ -32,115 +80,95 @@ class AuthRepository {
     required String password,
     required String role,
     String? avatarUrl,
-    String? section,
-    int? yearLevel,
+    required String section,    // Now required
+    required String yearLevel,  // Now required
+    String? fullName,           // Added for consistency
   }) async {
-    final credential =
-    await auth.createUserWithEmailAndPassword(email: email, password: password);
+    final cred = await auth.createUserWithEmailAndPassword(
+        email: email, password: password);
 
-    final userData = {
+    await firestore.collection('users').doc(cred.user!.uid).set({
+      'fullName': fullName ?? email.split('@')[0],
       'email': email,
       'role': role,
       'avatarUrl': avatarUrl ?? '',
       'createdAt': FieldValue.serverTimestamp(),
-    };
+      'section': section,
+      'yearLevel': yearLevel,
+      'onboardingCompleted': true,
+    });
 
-    if (role == 'student') {
-      userData['section'] = section ?? '';
-      userData['yearLevel'] = yearLevel ?? 1;
-      userData['enrolledCourses'] = <String>[];
-    }
-
-    await firestore.collection('users').doc(credential.user!.uid).set(userData);
-
-    return credential;
+    return cred;
   }
 
-  Future<void> updateUserAvatar({
-    required String uid,
-    required String avatarUrl,
-  }) async {
-    await firestore.collection('users').doc(uid).set(
-      {'avatarUrl': avatarUrl},
-      SetOptions(merge: true),
-    );
+  Future<UserCredential> signIn(String email, String password) =>
+      auth.signInWithEmailAndPassword(email: email, password: password);
+
+  Future<void> updateUserAvatar({required String uid, required String avatarUrl}) async {
+    await firestore.collection('users').doc(uid).update({'avatarUrl': avatarUrl});
   }
+
+  Future<void> resendVerificationEmail(User user) => user.sendEmailVerification();
 
   Future<void> signOut() async {
-    await auth.signOut();
+    try {
+      await auth.signOut();
+      if (kIsWeb) {
+        await GoogleSignIn.instance.signOut();
+        await GoogleSignIn.instance.disconnect();
+      } else {
+        await _googleSignIn.signOut();
+      }
+    } catch (e) {
+      print("SignOut Error: $e");
+    }
   }
 }
 
-/// Controller: interacts with UI / Riverpod
 class AuthController {
   final AuthRepository repository;
-
   AuthController(this.repository);
 
-  // Sign in returns UserCredential
-  Future<UserCredential> signIn(String email, String password) {
-    return repository.signIn(email, password);
-  }
+  Future<UserCredential?> signInWithGoogle() => repository.signInWithGoogle();
+  Future<UserCredential> signIn(String email, String password) => repository.signIn(email, password);
 
-  // Sign up returns UserCredential
   Future<UserCredential> signUp({
     required String email,
     required String password,
     required String role,
+    required String section,
+    required String yearLevel,
     String? avatarUrl,
-    String? section,
-    int? yearLevel,
-  }) {
-    return repository.signUp(
-      email: email,
-      password: password,
-      role: role,
-      avatarUrl: avatarUrl,
-      section: section,
-      yearLevel: yearLevel,
-    );
-  }
+    String? fullName,
+  }) => repository.signUp(
+    email: email,
+    password: password,
+    role: role,
+    avatarUrl: avatarUrl,
+    section: section,
+    yearLevel: yearLevel,
+    fullName: fullName,
+  );
 
-  Future<void> updateUserAvatar({
-    required String uid,
-    required String avatarUrl,
-  }) {
+  Future<void> updateUserAvatar({required String uid, required String avatarUrl}) {
     return repository.updateUserAvatar(uid: uid, avatarUrl: avatarUrl);
   }
 
+  Future<void> resendVerificationEmail(User user) => repository.resendVerificationEmail(user);
   Future<void> signOut() => repository.signOut();
-
-  User? get currentUser => repository.currentUser;
+  User? get currentUser => repository.auth.currentUser;
 }
 
-/// Provider for the repository
-final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return AuthRepository(ref.watch(firebaseAuthProvider), ref.watch(firestoreProvider));
-});
+// Providers remain the same
+final authRepositoryProvider = Provider<AuthRepository>((ref) =>
+    AuthRepository(ref.watch(firebaseAuthProvider), ref.watch(firestoreProvider)));
 
-/// Provider for the controller
-final authControllerProvider = Provider<AuthController>((ref) {
-  return AuthController(ref.watch(authRepositoryProvider));
-});
+final authControllerProvider = Provider<AuthController>((ref) =>
+    AuthController(ref.watch(authRepositoryProvider)));
 
-/// Provider that fetches the role of the currently signed-in user
 final userRoleProvider = FutureProvider<String>((ref) async {
-  final authController = ref.watch(authControllerProvider);
-  final user = authController.currentUser;
-
-  if (user == null) throw Exception('No user signed in');
-
-  final doc =
-  await ref.watch(firestoreProvider).collection('users').doc(user.uid).get();
-
-  final data = doc.data();
-  if (data == null) throw Exception('User not found');
-
-  return data['role'] as String? ?? '';
-});
-
-final currentUserProvider = Provider<AppUser?>((ref) {
-  final user = ref.watch(authControllerProvider).currentUser; // Firebase User
-  if (user == null) return null;
-  return ref.watch(userRepositoryProvider).getUserById(user.uid); // Returns AppUser
+  final user = ref.watch(firebaseAuthProvider).currentUser;
+  if (user == null) return '';
+  final doc = await ref.watch(firestoreProvider).collection('users').doc(user.uid).get();
+  return doc.data()?['role'] as String? ?? '';
 });

@@ -18,4 +18,11 @@ class LessonRepository {
         .map((snapshot) =>
         snapshot.docs.map((doc) => LessonModel.fromFirestore(doc)).toList());
   }
+  // Add this to your LessonRepository class
+  Future<void> createLesson(LessonModel lesson) async {
+    await firestore.collection('lessons').add(lesson.toMap());
+  }
+  Future<void> addLesson(LessonModel lesson) async {
+    await firestore.collection('lessons').add(lesson.toMap());
+  }
 }

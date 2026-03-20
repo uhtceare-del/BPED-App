@@ -2,19 +2,19 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class TaskModel {
   final String id;
-  final String lessonId;
   final String title;
   final String description;
   final int maxScore;
-  final DateTime deadline; // due date
+  final DateTime deadline;
+  final String? lessonId; // Make this optional if a task isn't always linked to a lesson
 
   TaskModel({
     required this.id,
-    required this.lessonId,
     required this.title,
     required this.description,
     required this.maxScore,
     required this.deadline,
+    this.lessonId, // Optional
   });
 
   /// Create TaskModel from Firestore DocumentSnapshot

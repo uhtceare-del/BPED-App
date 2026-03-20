@@ -5,12 +5,18 @@ class LessonModel {
   final String courseId;
   final String title;
   final String description;
+  final String? videoUrl;
+  final String? pdfUrl;// NEW: For technique demonstrations
+  final String? category; // NEW: e.g., 'Anatomy', 'Pedagogy'
 
   LessonModel({
     required this.id,
     required this.courseId,
     required this.title,
     required this.description,
+    required this.videoUrl,
+    required this.pdfUrl,
+    required this.category,
   });
 
   // Factory constructor from Firestore
@@ -23,6 +29,9 @@ class LessonModel {
         courseId: '',
         title: '',
         description: '',
+        videoUrl: '',
+        pdfUrl: '',
+        category: '',
       );
     }
 
@@ -31,6 +40,9 @@ class LessonModel {
       courseId: data['courseId'] ?? '',
       title: data['title'] ?? '',
       description: data['description'] ?? '',
+      videoUrl: data['videoUrl'] ?? '',
+      pdfUrl: data['pdfUrl'] ?? '',
+      category: data['category'] ?? '',
     );
   }
 
@@ -40,6 +52,9 @@ class LessonModel {
       'courseId': courseId,
       'title': title,
       'description': description,
+      'videoUrl': videoUrl,
+      'pdfUrl': pdfUrl,
+      'category': category,
     };
   }
 }

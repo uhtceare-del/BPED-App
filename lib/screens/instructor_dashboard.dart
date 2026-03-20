@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
+import '../providers/auth_provider.dart';
 import 'course_screen.dart';
-import 'task_screen.dart';
+import 'create_task_screen.dart';
 import 'lesson_screen.dart';
 import 'class_screen.dart';
 import 'reviewer_screen.dart';
 import 'submission_screen.dart';
-import '../providers/auth_provider.dart';
 
 final selectedModuleProvider = StateProvider<int>((ref) => 0);
 
@@ -16,144 +15,88 @@ class InstructorDashboard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    const Color lnuNavy = Color(0xFF002147);
     final selectedIndex = ref.watch(selectedModuleProvider);
     final screenWidth = MediaQuery.of(context).size.width;
+    final userAsync = ref.watch(currentUserProvider);
 
     Widget content;
     switch (selectedIndex) {
-      case 0:
-        content = const CourseScreen();
-        break;
-      case 1:
-        content = const TaskScreen();
-        break;
-      case 2:
-        content = const LessonScreen();
-        break;
-      case 3:
-        content = const ClassScreen();
-        break;
-      case 4:
-        content = const ReviewerScreen();
-        break;
-      case 5:
-        content = const SubmissionScreen();
-        break;
-      default:
-        content = const CourseScreen();
+      case 0: content = const CourseScreen(); break;
+      case 1: content = const CreateTaskScreen(); break;
+      case 2: content = const LessonScreen(); break;
+      case 3: content = const ClassScreen(); break;
+      case 4: content = const ReviewerScreen(); break;
+      case 5: content = const SubmissionScreen(); break;
+      default: content = const CourseScreen();
     }
 
-    final user = ref.watch(currentUserProvider);
-
     return Scaffold(
+      backgroundColor: const Color(0xFFF0F4F8),
       appBar: AppBar(
-        title: const Text("Instructor Dashboard"),
+        title: const Text("Instructor Dashboard", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        backgroundColor: lnuNavy,
         actions: [
-          CircleAvatar(
-            radius: 18,
-            backgroundImage: user?.avatarUrl.isNotEmpty == true
-                ? NetworkImage(user!.avatarUrl)
-                : null,
-            child: user?.avatarUrl.isEmpty ?? true
-                ? const Icon(Icons.person)
-                : null,
-          ),
-          const SizedBox(width: 10),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await ref.read(authControllerProvider).signOut();
-            },
-          ),
-          const SizedBox(width: 10),
-        ],
-      ),
-
-      body: screenWidth >= 700
-          ? Row(
-        children: [
-          NavigationRail(
-            selectedIndex: selectedIndex,
-            onDestinationSelected: (index) =>
-            ref.read(selectedModuleProvider.notifier).state = index,
-            labelType: NavigationRailLabelType.all,
-            destinations: const [
-              NavigationRailDestination(
-                icon: Icon(Icons.book),
-                label: Text('Courses'),
+          userAsync.when(
+            data: (user) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12.0),
+              child: CircleAvatar(
+                radius: 18,
+                backgroundColor: Colors.white24,
+                backgroundImage: (user?.avatarUrl != null && user!.avatarUrl.isNotEmpty) ? NetworkImage(user.avatarUrl) : null,
+                child: (user?.avatarUrl == null || user!.avatarUrl.isEmpty) ? const Icon(Icons.person, color: Colors.white) : null,
               ),
-              NavigationRailDestination(
-                icon: Icon(Icons.task),
-                label: Text('Tasks'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.menu_book),
-                label: Text('Lessons'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.class_),
-                label: Text('Classes'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.upload_file),
-                label: Text('Reviewers'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.assignment_turned_in),
-                label: Text('Submissions'),
-              ),
-            ],
-          ),
-
-          const VerticalDivider(width: 1),
-
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: content,
             ),
+            loading: () => const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))),
+            error: (_, __) => const Icon(Icons.error_outline, color: Colors.white),
           ),
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.white),
+            onPressed: () => ref.read(authControllerProvider).signOut(),
+          ),
+          const SizedBox(width: 8),
         ],
-      )
-          : Padding(
-        padding: const EdgeInsets.all(16),
-        child: content,
       ),
-
-      bottomNavigationBar: screenWidth < 700
-          ? BottomNavigationBar(
-        currentIndex: selectedIndex,
-        onTap: (index) =>
-        ref.read(selectedModuleProvider.notifier).state = index,
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.book),
-            label: "Courses",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.task),
-            label: "Tasks",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.menu_book),
-            label: "Lessons",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.class_),
-            label: "Classes",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.upload_file),
-            label: "Reviewers",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.assignment_turned_in),
-            label: "Submissions",
-          ),
-        ],
-      )
-          : null,
+      body: screenWidth >= 700 ? _buildWideLayout(ref, selectedIndex, content, lnuNavy) : Padding(padding: const EdgeInsets.all(16), child: content),
+      bottomNavigationBar: screenWidth < 700 ? _buildBottomNav(ref, selectedIndex, lnuNavy) : null,
     );
   }
+
+  Widget _buildWideLayout(WidgetRef ref, int selectedIndex, Widget content, Color navy) => Row(
+    children: [
+      NavigationRail(
+        selectedIndex: selectedIndex,
+        onDestinationSelected: (index) => ref.read(selectedModuleProvider.notifier).state = index,
+        labelType: NavigationRailLabelType.all,
+        selectedIconTheme: IconThemeData(color: navy),
+        selectedLabelTextStyle: TextStyle(color: navy, fontWeight: FontWeight.bold),
+        destinations: const [
+          NavigationRailDestination(icon: Icon(Icons.book), label: Text('Courses')),
+          NavigationRailDestination(icon: Icon(Icons.task), label: Text('Tasks')),
+          NavigationRailDestination(icon: Icon(Icons.menu_book), label: Text('Lessons')),
+          NavigationRailDestination(icon: Icon(Icons.class_), label: Text('Classes')),
+          NavigationRailDestination(icon: Icon(Icons.upload_file), label: Text('Reviewers')),
+          NavigationRailDestination(icon: Icon(Icons.assignment_turned_in), label: Text('Submissions')),
+        ],
+      ),
+      const VerticalDivider(width: 1),
+      Expanded(child: Padding(padding: const EdgeInsets.all(16), child: content)),
+    ],
+  );
+
+  Widget _buildBottomNav(WidgetRef ref, int selectedIndex, Color navy) => BottomNavigationBar(
+    currentIndex: selectedIndex,
+    onTap: (index) => ref.read(selectedModuleProvider.notifier).state = index,
+    type: BottomNavigationBarType.fixed,
+    selectedItemColor: navy,
+    unselectedItemColor: Colors.grey,
+    items: const [
+      BottomNavigationBarItem(icon: Icon(Icons.book), label: "Courses"),
+      BottomNavigationBarItem(icon: Icon(Icons.task), label: "Tasks"),
+      BottomNavigationBarItem(icon: Icon(Icons.menu_book), label: "Lessons"),
+      BottomNavigationBarItem(icon: Icon(Icons.class_), label: "Classes"),
+      BottomNavigationBarItem(icon: Icon(Icons.upload_file), label: "Reviewers"),
+      BottomNavigationBarItem(icon: Icon(Icons.assignment_turned_in), label: "Submissions"),
+    ],
+  );
 }
