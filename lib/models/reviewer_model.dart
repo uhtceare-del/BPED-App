@@ -7,12 +7,18 @@ class ReviewerModel {
   final String category;
   final DateTime uploadedAt;
 
+  // --- NEW SECURITY FIELDS ---
+  final String instructorId;
+  final String classId;
+
   ReviewerModel({
     required this.id,
     required this.title,
     required this.fileUrl,
     required this.category,
     required this.uploadedAt,
+    required this.instructorId, // Added here
+    required this.classId, // Added here
   });
 
   Map<String, dynamic> toMap() {
@@ -20,7 +26,10 @@ class ReviewerModel {
       'title': title,
       'fileUrl': fileUrl,
       'category': category,
-      'uploadedAt': FieldValue.serverTimestamp(), // Better for Firestore sync
+      'uploadedAt': FieldValue.serverTimestamp(),
+      // --- ADDED TO DATABASE SAVE ---
+      'instructorId': instructorId,
+      'classId': classId,
     };
   }
 
@@ -28,10 +37,15 @@ class ReviewerModel {
     final data = doc.data() as Map<String, dynamic>;
     return ReviewerModel(
       id: doc.id,
-      title: data['title'] ?? '',
+      // Safely checks for 'title' first, but falls back to 'name' just in case
+      title: data['title'] ?? data['name'] ?? 'Unnamed',
       fileUrl: data['fileUrl'] ?? '',
       category: data['category'] ?? 'General',
-      uploadedAt: (data['uploadedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      uploadedAt:
+          (data['uploadedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      // --- ADDED TO DATABASE READ ---
+      instructorId: data['instructorId'] ?? '',
+      classId: data['classId'] ?? '',
     );
   }
 }

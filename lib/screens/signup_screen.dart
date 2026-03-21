@@ -1,12 +1,6 @@
-import 'dart:io';
-import 'dart:typed_data';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
-import 'package:phys_ed/providers/image_upload_provider.dart';
 import 'package:phys_ed/providers/auth_provider.dart';
 import 'package:phys_ed/screens/onboarding_screen.dart';
 
@@ -46,7 +40,9 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
       if (userCredential != null && mounted) {
         // 2. Check if user already exists in Firestore
-        final exists = await authRepository.doesUserExist(userCredential.user!.uid);
+        final exists = await authRepository.doesUserExist(
+          userCredential.user!.uid,
+        );
 
         if (!exists) {
           // 3. New User: Route to Onboarding
@@ -61,9 +57,9 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Google Sign-Up failed: $e")),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Google Sign-Up failed: $e")));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -79,13 +75,15 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       // For email signup, we still need onboarding details
       // OR we route them to OnboardingScreen after account creation.
       // Let's route to Onboarding for a unified experience.
-      final userCredential = await ref.read(authControllerProvider).signUp(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-        role: 'student', // Default or add a toggle
-        section: '',
-        yearLevel: '',
-      );
+      final userCredential = await ref
+          .read(authControllerProvider)
+          .signUp(
+            email: _emailController.text.trim(),
+            password: _passwordController.text.trim(),
+            role: 'student', // Default or add a toggle
+            section: '',
+            yearLevel: '',
+          );
 
       if (mounted) {
         Navigator.pushReplacement(
@@ -96,7 +94,10 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.redAccent),
+          SnackBar(
+            content: Text("Error: $e"),
+            backgroundColor: Colors.redAccent,
+          ),
         );
       }
     } finally {
@@ -109,7 +110,10 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     return Scaffold(
       backgroundColor: academicGray,
       appBar: AppBar(
-        title: const Text("Create Account", style: TextStyle(color: lnuNavy, fontWeight: FontWeight.bold)),
+        title: const Text(
+          "Create Account",
+          style: TextStyle(color: lnuNavy, fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
@@ -129,7 +133,11 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 const Text(
                   "Join the LNU PE Portal",
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: lnuNavy),
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: lnuNavy,
+                  ),
                 ),
                 const SizedBox(height: 32),
 
@@ -142,16 +150,32 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                     Expanded(child: Divider()),
                     Padding(
                       padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: Text("OR USE EMAIL", style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
+                      child: Text(
+                        "OR USE EMAIL",
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                     Expanded(child: Divider()),
                   ],
                 ),
                 const SizedBox(height: 24),
 
-                _buildTextField(_emailController, "Gmail Address", Icons.email_outlined),
+                _buildTextField(
+                  _emailController,
+                  "Gmail Address",
+                  Icons.email_outlined,
+                ),
                 const SizedBox(height: 16),
-                _buildTextField(_passwordController, "Password", Icons.lock_outline, obscure: true),
+                _buildTextField(
+                  _passwordController,
+                  "Password",
+                  Icons.lock_outline,
+                  obscure: true,
+                ),
                 const SizedBox(height: 24),
 
                 _buildPrimaryButton("CREATE WITH EMAIL", _handleEmailSignUp),
@@ -159,7 +183,13 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 const SizedBox(height: 20),
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text("Already have an account? Sign in", style: TextStyle(color: lnuNavy, fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    "Already have an account? Sign in",
+                    style: TextStyle(
+                      color: lnuNavy,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -173,7 +203,11 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     onPressed: _isLoading ? null : _handleGoogleSignUp,
     label: const Text(
       "Sign Up with Google",
-      style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 16),
+      style: TextStyle(
+        color: Colors.black87,
+        fontWeight: FontWeight.bold,
+        fontSize: 16,
+      ),
     ),
     style: OutlinedButton.styleFrom(
       padding: const EdgeInsets.symmetric(vertical: 14),
@@ -183,19 +217,29 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     ),
   );
 
-  Widget _buildTextField(TextEditingController controller, String label, IconData icon, {bool obscure = false}) =>
-      TextFormField(
-        controller: controller,
-        obscureText: obscure,
-        decoration: InputDecoration(
-          labelText: label,
-          prefixIcon: Icon(icon, color: lnuNavy),
-          filled: true,
-          fillColor: Colors.white,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.black12)),
-        ),
-      );
+  Widget _buildTextField(
+    TextEditingController controller,
+    String label,
+    IconData icon, {
+    bool obscure = false,
+  }) => TextFormField(
+    controller: controller,
+    obscureText: obscure,
+    decoration: InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon, color: lnuNavy),
+      filled: true,
+      fillColor: Colors.white,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.black12),
+      ),
+    ),
+  );
 
   Widget _buildPrimaryButton(String text, VoidCallback onPressed) => SizedBox(
     height: 55,

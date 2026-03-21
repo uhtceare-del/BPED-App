@@ -17,15 +17,15 @@ class TakeQuizScreen extends ConsumerStatefulWidget {
 }
 
 class _TakeQuizScreenState extends ConsumerState<TakeQuizScreen> {
-  // Maps the Question ID to the selected choice index
   final Map<String, int> _selectedAnswers = {};
   bool _isSubmitting = false;
 
   Future<void> _submitQuiz(List<QuestionModel> questions) async {
-    // 1. Validation: Ensure all questions are answered
     if (_selectedAnswers.length < questions.length) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please answer all questions before submitting.')),
+        const SnackBar(
+          content: Text('Please answer all questions before submitting.'),
+        ),
       );
       return;
     }
@@ -33,7 +33,7 @@ class _TakeQuizScreenState extends ConsumerState<TakeQuizScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      // 2. Instant Grading Logic
+      // 1. Grading Logic
       int correctAnswers = 0;
       for (var question in questions) {
         if (_selectedAnswers[question.id] == question.correctAnswerIndex) {
@@ -41,36 +41,39 @@ class _TakeQuizScreenState extends ConsumerState<TakeQuizScreen> {
         }
       }
 
-      // Calculate final score based on the Task's maxScore
-      double rawScore = (correctAnswers / questions.length) * widget.task.maxScore;
+      double rawScore =
+          (correctAnswers / questions.length) * widget.task.maxScore;
       String finalGrade = rawScore.round().toString();
 
-      // 3. Get Current Student Info
-      final user = ref.read(authControllerProvider).currentUser;
+      // 2. Get Current Student Info
+      final user = ref
+          .read(currentUserProvider)
+          .value; // Updated to match your auth provider
       if (user == null) throw Exception("User not logged in");
 
-      // 4. Create Submission Model
+      // 3. THE FIX: Create Submission Model with all required fields
       final submission = SubmissionModel(
-        id: '', // Firestore auto-generates this
+        id: '',
         taskId: widget.task.id,
         studentId: user.uid,
-        studentEmail: user.email ?? 'Unknown',
+        studentEmail: user.email ?? 'No Email',
         submittedAt: DateTime.now(),
         grade: finalGrade,
+        instructorId: widget.task.instructorId, // THE MASTER KEY
+        fileUrl: null, // Quizzes don't usually have file uploads
       );
 
-      // 5. Save to Firestore
+      // 4. Save to Firestore
       await ref.read(submissionRepositoryProvider).createSubmission(submission);
 
-      // 6. Show Results & Exit
       if (mounted) {
         _showResultsDialog(correctAnswers, questions.length, finalGrade);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Submission failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Submission failed: $e')));
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -82,25 +85,41 @@ class _TakeQuizScreenState extends ConsumerState<TakeQuizScreen> {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text('Quiz Submitted!'),
+        title: const Text(
+          'Quiz Submitted!',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('You got $correct out of $total correct.', style: const TextStyle(fontSize: 16)),
+            Text(
+              'You got $correct out of $total correct.',
+              style: const TextStyle(fontSize: 16),
+            ),
             const SizedBox(height: 10),
             Text(
               'Final Score: $finalGrade / ${widget.task.maxScore}',
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.blue),
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF002147),
+              ),
             ),
           ],
         ),
         actions: [
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF002147),
+            ),
             onPressed: () {
-              Navigator.pop(context); // Close dialog
-              Navigator.pop(context); // Return to previous screen
+              Navigator.pop(context);
+              Navigator.pop(context);
             },
-            child: const Text('Return to Dashboard'),
+            child: const Text(
+              'Return to Dashboard',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -113,19 +132,23 @@ class _TakeQuizScreenState extends ConsumerState<TakeQuizScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.task.title),
+        title: Text(
+          widget.task.title,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
       ),
       body: questionsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(child: Text('Error: $err')),
         data: (questions) {
           if (questions.isEmpty) {
-            return const Center(child: Text('No questions available for this quiz.'));
+            return const Center(
+              child: Text('No questions available for this quiz.'),
+            );
           }
 
           return Column(
             children: [
-              // Header Instructions
               Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Text(
@@ -133,17 +156,17 @@ class _TakeQuizScreenState extends ConsumerState<TakeQuizScreen> {
                   style: const TextStyle(fontSize: 16, color: Colors.grey),
                 ),
               ),
-
-              // Questions List
               Expanded(
                 child: ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   itemCount: questions.length,
                   itemBuilder: (context, index) {
                     final question = questions[index];
-
                     return Card(
                       margin: const EdgeInsets.only(bottom: 20),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       child: Padding(
                         padding: const EdgeInsets.all(16.0),
                         child: Column(
@@ -151,22 +174,26 @@ class _TakeQuizScreenState extends ConsumerState<TakeQuizScreen> {
                           children: [
                             Text(
                               '${index + 1}. ${question.questionText}',
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             const SizedBox(height: 10),
-
-                            // Generate Radio Buttons for Choices
-                            ...List.generate(question.choices.length, (choiceIndex) {
+                            ...List.generate(question.choices.length, (
+                              choiceIndex,
+                            ) {
                               return RadioListTile<int>(
                                 title: Text(question.choices[choiceIndex]),
                                 value: choiceIndex,
                                 groupValue: _selectedAnswers[question.id],
+                                activeColor: const Color(0xFF002147),
                                 onChanged: (value) {
-                                  if (value != null) {
-                                    setState(() {
-                                      _selectedAnswers[question.id] = value;
-                                    });
-                                  }
+                                  if (value != null)
+                                    setState(
+                                      () =>
+                                          _selectedAnswers[question.id] = value,
+                                    );
                                 },
                               );
                             }),
@@ -177,25 +204,34 @@ class _TakeQuizScreenState extends ConsumerState<TakeQuizScreen> {
                   },
                 ),
               ),
-
-              // Submit Button Area
               Container(
                 padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).scaffoldBackgroundColor,
-                  boxShadow: [
-                    BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5)),
-                  ],
-                ),
                 width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF002147),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-                  onPressed: _isSubmitting ? null : () => _submitQuiz(questions),
+                  onPressed: _isSubmitting
+                      ? null
+                      : () => _submitQuiz(questions),
                   child: _isSubmitting
-                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Text('Submit Answers', style: TextStyle(fontSize: 16)),
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text(
+                          'Submit Answers',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                 ),
               ),
             ],

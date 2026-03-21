@@ -5,8 +5,12 @@ import 'package:google_sign_in/google_sign_in.dart';
 import '../models/user_model.dart';
 import 'package:flutter/foundation.dart';
 
-final firebaseAuthProvider = Provider<FirebaseAuth>((ref) => FirebaseAuth.instance);
-final firestoreProvider = Provider<FirebaseFirestore>((ref) => FirebaseFirestore.instance);
+final firebaseAuthProvider = Provider<FirebaseAuth>(
+  (ref) => FirebaseAuth.instance,
+);
+final firestoreProvider = Provider<FirebaseFirestore>(
+  (ref) => FirebaseFirestore.instance,
+);
 
 final authStateProvider = StreamProvider<User?>((ref) {
   return ref.watch(firebaseAuthProvider).authStateChanges();
@@ -16,11 +20,16 @@ final currentUserProvider = StreamProvider<AppUser?>((ref) {
   final authState = ref.watch(authStateProvider).value;
   if (authState == null) return Stream.value(null);
 
-  return ref.watch(firestoreProvider)
+  return ref
+      .watch(firestoreProvider)
       .collection('users')
       .doc(authState.uid)
       .snapshots()
-      .map((snap) => snap.exists ? AppUser.fromFirestore(snap.data()!, authState.uid) : null);
+      .map(
+        (snap) => snap.exists
+            ? AppUser.fromFirestore(snap.data()!, authState.uid)
+            : null,
+      );
 });
 
 class AuthRepository {
@@ -36,9 +45,7 @@ class AuthRepository {
       GoogleAuthProvider googleProvider = GoogleAuthProvider();
 
       // Forces Google to show the account picker every time
-      googleProvider.setCustomParameters({
-        'prompt': 'select_account'
-      });
+      googleProvider.setCustomParameters({'prompt': 'select_account'});
 
       // Use popup for Web, consider signInWithCredential for mobile if needed
       final userCredential = await auth.signInWithPopup(googleProvider);
@@ -80,12 +87,14 @@ class AuthRepository {
     required String password,
     required String role,
     String? avatarUrl,
-    required String section,    // Now required
-    required String yearLevel,  // Now required
-    String? fullName,           // Added for consistency
+    required String section, // Now required
+    required String yearLevel, // Now required
+    String? fullName, // Added for consistency
   }) async {
     final cred = await auth.createUserWithEmailAndPassword(
-        email: email, password: password);
+      email: email,
+      password: password,
+    );
 
     await firestore.collection('users').doc(cred.user!.uid).set({
       'fullName': fullName ?? email.split('@')[0],
@@ -104,11 +113,17 @@ class AuthRepository {
   Future<UserCredential> signIn(String email, String password) =>
       auth.signInWithEmailAndPassword(email: email, password: password);
 
-  Future<void> updateUserAvatar({required String uid, required String avatarUrl}) async {
-    await firestore.collection('users').doc(uid).update({'avatarUrl': avatarUrl});
+  Future<void> updateUserAvatar({
+    required String uid,
+    required String avatarUrl,
+  }) async {
+    await firestore.collection('users').doc(uid).update({
+      'avatarUrl': avatarUrl,
+    });
   }
 
-  Future<void> resendVerificationEmail(User user) => user.sendEmailVerification();
+  Future<void> resendVerificationEmail(User user) =>
+      user.sendEmailVerification();
 
   Future<void> signOut() async {
     try {
@@ -130,7 +145,8 @@ class AuthController {
   AuthController(this.repository);
 
   Future<UserCredential?> signInWithGoogle() => repository.signInWithGoogle();
-  Future<UserCredential> signIn(String email, String password) => repository.signIn(email, password);
+  Future<UserCredential> signIn(String email, String password) =>
+      repository.signIn(email, password);
 
   Future<UserCredential> signUp({
     required String email,
@@ -150,25 +166,38 @@ class AuthController {
     fullName: fullName,
   );
 
-  Future<void> updateUserAvatar({required String uid, required String avatarUrl}) {
+  Future<void> updateUserAvatar({
+    required String uid,
+    required String avatarUrl,
+  }) {
     return repository.updateUserAvatar(uid: uid, avatarUrl: avatarUrl);
   }
 
-  Future<void> resendVerificationEmail(User user) => repository.resendVerificationEmail(user);
+  Future<void> resendVerificationEmail(User user) =>
+      repository.resendVerificationEmail(user);
   Future<void> signOut() => repository.signOut();
   User? get currentUser => repository.auth.currentUser;
 }
 
 // Providers remain the same
-final authRepositoryProvider = Provider<AuthRepository>((ref) =>
-    AuthRepository(ref.watch(firebaseAuthProvider), ref.watch(firestoreProvider)));
+final authRepositoryProvider = Provider<AuthRepository>(
+  (ref) => AuthRepository(
+    ref.watch(firebaseAuthProvider),
+    ref.watch(firestoreProvider),
+  ),
+);
 
-final authControllerProvider = Provider<AuthController>((ref) =>
-    AuthController(ref.watch(authRepositoryProvider)));
+final authControllerProvider = Provider<AuthController>(
+  (ref) => AuthController(ref.watch(authRepositoryProvider)),
+);
 
 final userRoleProvider = FutureProvider<String>((ref) async {
   final user = ref.watch(firebaseAuthProvider).currentUser;
   if (user == null) return '';
-  final doc = await ref.watch(firestoreProvider).collection('users').doc(user.uid).get();
+  final doc = await ref
+      .watch(firestoreProvider)
+      .collection('users')
+      .doc(user.uid)
+      .get();
   return doc.data()?['role'] as String? ?? '';
 });

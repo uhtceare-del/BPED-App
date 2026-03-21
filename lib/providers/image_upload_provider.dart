@@ -3,10 +3,11 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'cloudinary_provider.dart'; // Assuming this exports CloudinaryService
 
-final imageUploadProvider = StateNotifierProvider<ImageUploadNotifier, AsyncValue<String?>>((ref) {
-  final cloudinary = ref.read(cloudinaryProvider);
-  return ImageUploadNotifier(cloudinary);
-});
+final imageUploadProvider =
+    StateNotifierProvider<ImageUploadNotifier, AsyncValue<String?>>((ref) {
+      final cloudinary = ref.read(cloudinaryProvider);
+      return ImageUploadNotifier(cloudinary);
+    });
 
 class ImageUploadNotifier extends StateNotifier<AsyncValue<String?>> {
   final CloudinaryService _cloudinary;
@@ -36,16 +37,15 @@ class ImageUploadNotifier extends StateNotifier<AsyncValue<String?>> {
 
   /// Upload from web (bytes)
   Future<String?> uploadBytes(
-      Uint8List bytes, {
-        String filename = 'avatar.jpg',
-        String? folder,
-      }) async {
+    Uint8List bytes, {
+    String filename = 'avatar.jpg',
+    String? folder,
+  }) async {
     state = const AsyncValue.loading();
     try {
-      final url = await _cloudinary.uploadBytes(
-        bytes,
-        filename: filename,
-      );
+      // --- THE FIX: Updated to match our new Cloudinary Provider ---
+      final url = await _cloudinary.uploadFileBytes(bytes, filename);
+
       if (url != null && url.isNotEmpty) {
         state = AsyncValue.data(url);
         return url;

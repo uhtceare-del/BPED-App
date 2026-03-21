@@ -6,7 +6,12 @@ class TaskModel {
   final String description;
   final int maxScore;
   final DateTime deadline;
-  final String? lessonId; // Make this optional if a task isn't always linked to a lesson
+  final String?
+  lessonId; // Make this optional if a task isn't always linked to a lesson
+
+  // --- NEW SECURITY FIELDS ---
+  final String instructorId;
+  final String classId;
 
   TaskModel({
     required this.id,
@@ -15,6 +20,8 @@ class TaskModel {
     required this.maxScore,
     required this.deadline,
     this.lessonId, // Optional
+    required this.instructorId, // Added here
+    required this.classId, // Added here
   });
 
   /// Create TaskModel from Firestore DocumentSnapshot
@@ -53,6 +60,9 @@ class TaskModel {
       description: data['description'] ?? '',
       maxScore: parsedMaxScore,
       deadline: parsedDeadline,
+      // --- ADDED TO DATABASE READ ---
+      instructorId: data['instructorId'] ?? '',
+      classId: data['classId'] ?? '',
     );
   }
 
@@ -64,6 +74,9 @@ class TaskModel {
       'description': description,
       'maxScore': maxScore,
       'deadline': Timestamp.fromDate(deadline), // store as Timestamp
+      // --- ADDED TO DATABASE SAVE ---
+      'instructorId': instructorId,
+      'classId': classId,
     };
   }
 }

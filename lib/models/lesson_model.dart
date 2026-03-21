@@ -6,8 +6,11 @@ class LessonModel {
   final String title;
   final String description;
   final String? videoUrl;
-  final String? pdfUrl;// NEW: For technique demonstrations
+  final String? pdfUrl; // NEW: For technique demonstrations
   final String? category; // NEW: e.g., 'Anatomy', 'Pedagogy'
+
+  // --- NEW SECURITY FIELD ---
+  final String instructorId;
 
   LessonModel({
     required this.id,
@@ -17,6 +20,7 @@ class LessonModel {
     required this.videoUrl,
     required this.pdfUrl,
     required this.category,
+    required this.instructorId, // Added here
   });
 
   // Factory constructor from Firestore
@@ -32,6 +36,7 @@ class LessonModel {
         videoUrl: '',
         pdfUrl: '',
         category: '',
+        instructorId: '', // Added here
       );
     }
 
@@ -43,6 +48,7 @@ class LessonModel {
       videoUrl: data['videoUrl'] ?? '',
       pdfUrl: data['pdfUrl'] ?? '',
       category: data['category'] ?? '',
+      instructorId: data['instructorId'] ?? '', // Added here
     );
   }
 
@@ -55,6 +61,8 @@ class LessonModel {
       'videoUrl': videoUrl,
       'pdfUrl': pdfUrl,
       'category': category,
+      // --- ADDED TO DATABASE SAVE ---
+      'instructorId': instructorId,
     };
   }
 }

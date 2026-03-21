@@ -31,13 +31,15 @@ class HomeScreen extends ConsumerWidget {
                       width: 36,
                       height: 36,
                       fit: BoxFit.cover,
-                      placeholder: (context, url) => const CircularProgressIndicator(strokeWidth: 2),
-                      errorWidget: (context, url, error) => const Icon(Icons.error, color: Colors.red),
+                      placeholder: (context, url) =>
+                          const CircularProgressIndicator(strokeWidth: 2),
+                      errorWidget: (context, url, error) =>
+                          const Icon(Icons.error, color: Colors.red),
                     ),
                   );
                 },
                 loading: () => const CircularProgressIndicator(strokeWidth: 2),
-                error: (_, __) => const Icon(Icons.error, color: Colors.red),
+                error: (_, _) => const Icon(Icons.error, color: Colors.red),
               ),
             ),
           ),
@@ -66,7 +68,8 @@ class HomeScreen extends ConsumerWidget {
                         width: 180,
                         height: 180,
                         fit: BoxFit.cover,
-                        placeholder: (context, url) => const CircularProgressIndicator(),
+                        placeholder: (context, url) =>
+                            const CircularProgressIndicator(),
                         errorWidget: (context, url, error) => const Icon(
                           Icons.broken_image,
                           size: 100,

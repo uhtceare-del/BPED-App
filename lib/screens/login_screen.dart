@@ -39,7 +39,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       if (result == null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Google Sign-In failed or was cancelled")),
+          const SnackBar(
+            content: Text("Google Sign-In failed or was cancelled"),
+          ),
         );
       }
       // No Navigator.push needed! AuthWrapper in main.dart handles the switch.
@@ -47,16 +49,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (mounted) setState(() => _isLoading = false);
     }
   }
+
   // LOGIC PRESERVED: Email/Password login handler
   Future<void> login() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
 
     try {
-      final userCredential = await ref.read(authControllerProvider).signIn(
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
-      );
+      final userCredential = await ref
+          .read(authControllerProvider)
+          .signIn(
+            _emailController.text.trim(),
+            _passwordController.text.trim(),
+          );
 
       if (!userCredential.user!.emailVerified) {
         await ref.read(authControllerProvider).signOut();
@@ -66,8 +71,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         return;
       }
 
-      final userDoc = await ref.read(firestoreProvider)
-          .collection('users').doc(userCredential.user!.uid).get();
+      final userDoc = await ref
+          .read(firestoreProvider)
+          .collection('users')
+          .doc(userCredential.user!.uid)
+          .get();
 
       final role = userDoc.data()?['role'] as String? ?? 'student';
 
@@ -75,13 +83,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => role == 'instructor' ? const InstructorDashboard() : const StudentDashboard(),
+          builder: (_) => role == 'instructor'
+              ? const InstructorDashboard()
+              : const StudentDashboard(),
         ),
       );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Login failed: $e"), backgroundColor: lnuMaroon),
+          SnackBar(
+            content: Text("Login failed: $e"),
+            backgroundColor: lnuMaroon,
+          ),
         );
       }
       setState(() => _isLoading = false);
@@ -92,14 +105,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Email Not Verified", style: TextStyle(color: lnuMaroon, fontWeight: FontWeight.bold)),
-        content: const Text("Check your Gmail inbox and click the verification link before logging in."),
+        title: const Text(
+          "Email Not Verified",
+          style: TextStyle(color: lnuMaroon, fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          "Check your Gmail inbox and click the verification link before logging in.",
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Close", style: TextStyle(color: Colors.grey))),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Close", style: TextStyle(color: Colors.grey)),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: lnuNavy),
             onPressed: () async {
-              await ref.read(authControllerProvider).resendVerificationEmail(user);
+              await ref
+                  .read(authControllerProvider)
+                  .resendVerificationEmail(user);
               if (mounted) Navigator.pop(ctx);
             },
             child: const Text("Resend Link"),
@@ -112,7 +135,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA), // Light academic grey background
+      backgroundColor: const Color(
+        0xFFF8F9FA,
+      ), // Light academic grey background
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(32),
@@ -124,11 +149,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   // LNU LOGO SECTION
-                  Image.network(
-                    'https://www.lnu.edu.ph/wp-content/uploads/2021/04/LNU-Logo-1.png',
+                  // LNU LOGO SECTION
+                  Image.asset(
+                    'assets/lnu.png',
                     height: 120,
                     errorBuilder: (context, error, stackTrace) =>
-                    const Icon(Icons.school, size: 80, color: lnuNavy),
+                        const Icon(Icons.school, size: 80, color: lnuNavy),
                   ),
                   const SizedBox(height: 16),
                   const Text(
@@ -143,7 +169,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                   const Text(
                     "Leyte Normal University",
-                    style: TextStyle(fontSize: 14, color: lnuMaroon, fontWeight: FontWeight.w500),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: lnuMaroon,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                   const SizedBox(height: 48),
 
@@ -152,17 +182,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     controller: _emailController,
                     decoration: InputDecoration(
                       labelText: "Gmail Address",
-                      prefixIcon: const Icon(Icons.email_outlined, color: lnuNavy),
+                      prefixIcon: const Icon(
+                        Icons.email_outlined,
+                        color: lnuNavy,
+                      ),
                       filled: true,
                       fillColor: Colors.white,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: const BorderSide(color: lnuNavy, width: 2),
                       ),
                     ),
-                    validator: (v) => !RegExp(r'^[a-zA-Z0-9._%+-]+@gmail\.com$').hasMatch(v ?? '')
-                        ? 'Must be a valid @gmail.com' : null,
+                    validator: (v) =>
+                        !RegExp(
+                          r'^[a-zA-Z0-9._%+-]+@gmail\.com$',
+                        ).hasMatch(v ?? '')
+                        ? 'Must be a valid @gmail.com'
+                        : null,
                   ),
                   const SizedBox(height: 20),
                   TextFormField(
@@ -170,20 +209,33 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     obscureText: _obscurePassword,
                     decoration: InputDecoration(
                       labelText: "Password",
-                      prefixIcon: const Icon(Icons.lock_outline, color: lnuNavy),
+                      prefixIcon: const Icon(
+                        Icons.lock_outline,
+                        color: lnuNavy,
+                      ),
                       filled: true,
                       fillColor: Colors.white,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: const BorderSide(color: lnuNavy, width: 2),
                       ),
                       suffixIcon: IconButton(
-                        icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, color: Colors.grey),
-                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                          color: Colors.grey,
+                        ),
+                        onPressed: () => setState(
+                          () => _obscurePassword = !_obscurePassword,
+                        ),
                       ),
                     ),
-                    validator: (v) => (v == null || v.isEmpty) ? 'Password required' : null,
+                    validator: (v) =>
+                        (v == null || v.isEmpty) ? 'Password required' : null,
                   ),
                   const SizedBox(height: 32),
 
@@ -196,12 +248,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: lnuNavy,
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         elevation: 2,
                       ),
                       child: _isLoading
                           ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text("SIGN IN", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          : const Text(
+                              "SIGN IN",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -211,13 +271,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     onPressed: _isLoading ? null : _handleGoogleSignIn,
                     label: const Text(
                       "Continue with Google",
-                      style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        color: Colors.black87,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size.fromHeight(55),
                       backgroundColor: Colors.white,
                       side: const BorderSide(color: Colors.grey, width: 0.5),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -230,11 +295,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       GestureDetector(
                         onTap: () => Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const SignUpScreen()),
+                          MaterialPageRoute(
+                            builder: (_) => const SignUpScreen(),
+                          ),
                         ),
                         child: const Text(
                           "Create Account",
-                          style: TextStyle(color: lnuMaroon, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            color: lnuMaroon,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],

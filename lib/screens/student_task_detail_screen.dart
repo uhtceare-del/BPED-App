@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
@@ -5,59 +6,80 @@ import '../models/task_model.dart';
 import '../models/submission_model.dart';
 import '../providers/submission_provider.dart';
 import '../providers/auth_provider.dart';
-// Note: Ensure you have a Cloudinary provider set up to handle the actual file upload
-// import '../providers/cloudinary_provider.dart';
+import '../providers/cloudinary_provider.dart'; // UNCOMMENTED
 
 class StudentTaskDetailScreen extends ConsumerStatefulWidget {
   final TaskModel task;
   const StudentTaskDetailScreen({super.key, required this.task});
 
   @override
-  ConsumerState<StudentTaskDetailScreen> createState() => _StudentTaskDetailScreenState();
+  ConsumerState<StudentTaskDetailScreen> createState() =>
+      _StudentTaskDetailScreenState();
 }
 
-class _StudentTaskDetailScreenState extends ConsumerState<StudentTaskDetailScreen> {
+class _StudentTaskDetailScreenState
+    extends ConsumerState<StudentTaskDetailScreen> {
   bool _isUploading = false;
 
   Future<void> _submitPerformance() async {
-    // 1. Pick Video/File
+    // 1. Pick Video/File safely for Web and Mobile
     FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.video, // BPED often requires video for performance tasks
+      type: FileType.video,
+      withData: kIsWeb, // REQUIRED for Chrome
     );
 
-    if (result != null && result.files.single.path != null) {
+    if (result != null) {
+      final file = result.files.single;
       setState(() => _isUploading = true);
 
       try {
-        // 2. Upload to Cloudinary (Mocking the call here)
-        // String? url = await ref.read(cloudinaryProvider).uploadFile(result.files.single.path!);
-        String mockUrl = "https://cloudinary.com/videos/sample_performance.mp4";
+        // 2. Upload to Cloudinary using Web or Mobile logic
+        String? uploadedUrl;
+        if (kIsWeb && file.bytes != null) {
+          uploadedUrl = await ref
+              .read(cloudinaryProvider)
+              .uploadFileBytes(file.bytes!, file.name);
+        } else if (file.path != null) {
+          uploadedUrl = await ref
+              .read(cloudinaryProvider)
+              .uploadFile(file.path!);
+        }
 
-        // 3. Save Submission to Firestore
-        final currentUser = ref.read(authControllerProvider).currentUser;
+        if (uploadedUrl == null) throw Exception("Upload failed");
+
+        // 3. Save Submission to Firestore with the Master Key
+        final currentUser = ref.read(currentUserProvider).value;
 
         final submission = SubmissionModel(
           id: '',
           taskId: widget.task.id,
           studentId: currentUser!.uid,
-          studentEmail: currentUser.email ?? '',
+          studentEmail: currentUser.email ?? 'No Email',
           submittedAt: DateTime.now(),
-          grade: null, // Initially ungraded
-          // videoUrl: mockUrl, // Add this field to your model if needed
+          grade: null,
+          fileUrl: uploadedUrl, // Stores the performance link
+          instructorId: widget.task.instructorId, // THE MASTER KEY
         );
 
-        await ref.read(submissionRepositoryProvider).createSubmission(submission);
+        await ref
+            .read(submissionRepositoryProvider)
+            .createSubmission(submission);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Task submitted successfully!")),
+            const SnackBar(
+              content: Text("Task submitted successfully!"),
+              backgroundColor: Colors.green,
+            ),
           );
           Navigator.pop(context);
         }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e")),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+          );
+        }
       } finally {
         if (mounted) setState(() => _isUploading = false);
       }
@@ -66,30 +88,78 @@ class _StudentTaskDetailScreenState extends ConsumerState<StudentTaskDetailScree
 
   @override
   Widget build(BuildContext context) {
+    const Color lnuNavy = Color(0xFF002147);
+
     return Scaffold(
-      appBar: AppBar(title: const Text("Task Details")),
+      appBar: AppBar(
+        title: const Text(
+          "Task Details",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.task.title, style: Theme.of(context).textTheme.headlineSmall),
+            Text(
+              widget.task.title,
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: lnuNavy,
+              ),
+            ),
             const SizedBox(height: 8),
-            Text("Max Score: ${widget.task.maxScore} pts", style: const TextStyle(color: Colors.blue)),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                "Max Score: ${widget.task.maxScore} pts",
+                style: const TextStyle(
+                  color: Colors.blue,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
             const Divider(height: 32),
-            const Text("Instructions:", style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              "Instructions:",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
             const SizedBox(height: 8),
-            Text(widget.task.description),
+            Text(
+              widget.task.description,
+              style: const TextStyle(fontSize: 15, color: Colors.black87),
+            ),
             const Spacer(),
             SizedBox(
               width: double.infinity,
               height: 55,
               child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: lnuNavy,
+                  foregroundColor: Colors.white,
+                ),
                 onPressed: _isUploading ? null : _submitPerformance,
                 icon: _isUploading
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
                     : const Icon(Icons.upload_file),
-                label: Text(_isUploading ? "Uploading..." : "Upload Performance Video"),
+                label: Text(
+                  _isUploading
+                      ? "Uploading Performance..."
+                      : "Upload Performance Video",
+                ),
               ),
             ),
           ],

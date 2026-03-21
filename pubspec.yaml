@@ -15,22 +15,23 @@ dependencies:
   firebase_storage: ^13.1.0
   flutter_riverpod: ^2.3.6
   image_picker: ^1.2.1
-  http: ^1.1.0
+  http: ^1.6.0
   cached_network_image: ^3.4.1
   cupertino_icons: ^1.0.8
 
   # --- NEW: Offline Storage & Downloads ---
   hive: ^2.2.3
   hive_flutter: ^1.1.0
-  path_provider: ^2.1.2
-  dio: ^5.4.0
+  path_provider: ^2.1.5
+  dio: ^5.9.2
   syncfusion_flutter_pdfviewer: ^24.1.41
   video_player: ^2.8.2
   chewie: ^1.7.5
   file_picker: ^8.0.0+1
   google_sign_in: ^7.0.0
   google_sign_in_web: ^1.1.0
-
+  open_file: ^3.5.11
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:
@@ -43,3 +44,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/lnu.png
