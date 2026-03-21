@@ -1,0 +1,42 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+class ReviewerModel {
+  final String id;
+  final String title;
+  final String fileUrl;
+  final String category;
+  final DateTime uploadedAt;
+  final String instructorId; // NEW — owner of this reviewer
+
+  ReviewerModel({
+    required this.id,
+    required this.title,
+    required this.fileUrl,
+    required this.category,
+    required this.uploadedAt,
+    required this.instructorId,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'title': title,
+      'fileUrl': fileUrl,
+      'category': category,
+      'instructorId': instructorId,
+      'uploadedAt': FieldValue.serverTimestamp(),
+    };
+  }
+
+  factory ReviewerModel.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return ReviewerModel(
+      id: doc.id,
+      title: data['title'] ?? '',
+      fileUrl: data['fileUrl'] ?? '',
+      category: data['category'] ?? 'General',
+      uploadedAt:
+          (data['uploadedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      instructorId: data['instructorId'] ?? '',
+    );
+  }
+}
